@@ -63,10 +63,10 @@ class Commands(object):
         except exception.DatastoreVersionNotFound as e:
             print(e)
 
-    def datastore_version_update(self, datastore, version_name, manager,
-                                 image_id, packages, active):
+    def datastore_version_update(self, datastore_id_or_name, version_name,
+                                 manager, image_id, packages, active):
         try:
-            datastore_models.update_datastore_version(datastore,
+            datastore_models.update_datastore_version(datastore_id_or_name,
                                                       version_name,
                                                       manager,
                                                       image_id,
@@ -83,6 +83,52 @@ class Commands(object):
     def params_of(self, command_name):
         if Commands.has(command_name):
             return utils.MethodInspector(getattr(self, command_name))
+
+    def add_capability(self, name, description, enabled):
+        """Add capability."""
+        try:
+            datastore_models.Capability.create(name, description, enabled)
+        except Exception as e:
+            print('unable to create the capability: %s' % e)
+
+    def remove_capability(self, capability_id_or_name):
+        """Remove capability and all children capability overrides."""
+        try:
+            capability = datastore_models.Capability.load(
+                capability_id_or_name)
+            capability.delete()
+        except Exception as e:
+            print('unable to remove capability: %s' % e)
+
+    def add_capability_override(self, capability_id, datastore_version_id,
+                                enabled):
+        """Adds capabilty override to a datastore."""
+        try:
+            datastore_models.CapabilityOverride.create(capability_id,
+                                                       datastore_version_id,
+                                                       enabled)
+        except Exception as e:
+            print('Unable to add capability override: %s' % e)
+
+    def remove_capability_override(self, capability_id, datastore_version_id):
+        """Removes capability override on a datastore version."""
+        try:
+            capability_override = datastore_models.CapabilityOverride.load(
+                capability_id, datastore_version_id)
+            # TODO: (rramirez) ?????????? is there anything wrong with calling
+            # CapabilityOverride.delete(), which is really just a call to
+            # BaseCapability.delete()?
+            capability_override.delete()
+        except Exception as e:
+            print('Unable to remove capability override: %s' % e)
+
+    def remove_capability_overrides(self, capability_id, enabled='everything'):
+        """Remove overrides for a capability."""
+        try:
+            datastore_models.CapabilityOverrides.delete_capability_overrides(
+                capability_id, enabled)
+        except Exception as e:
+            print('Unable to remove capability overrides: %s' % e)
 
 
 def main():
@@ -104,7 +150,7 @@ def main():
         parser.add_argument('default_version')
 
         parser = subparser.add_parser('datastore_version_update')
-        parser.add_argument('datastore')
+        parser.add_argument('datastore_id_or_name')
         parser.add_argument('version_name')
         parser.add_argument('manager')
         parser.add_argument('image_id')
@@ -115,8 +161,30 @@ def main():
             'db_recreate', description='Drop the database and recreate it.')
         parser.add_argument(
             '--repo_path', help='SQLAlchemy Migrate repository path.')
+
         parser = subparser.add_parser('db_recreate')
         parser.add_argument('repo_path')
+
+        parser = subparser.add_parser('add_capability')
+        parser.add_argument('name')
+        parser.add_argument('description')
+        parser.add_argument('enabled')
+
+        parser = subparser.add_parser('remove_capability')
+        parser.add_argument('capability_id_or_name')
+
+        parser = subparser.add_parser('add_capability_override')
+        parser.add_argument('capability_id')
+        parser.add_argument('datastore_version_id')
+        parser.add_argument('enabled')
+
+        parser = subparser.add_parser('remove_capability_override')
+        parser.add_argument('capability_id')
+        parser.add_argument('datastore_version_id')
+
+        parser = subparser.add_parser('remove_capability_overrides')
+        parser.add_argument('capability_id')
+        parser.add_argument('enabled')
 
     cfg.custom_parser('action', actions)
     cfg.parse_args(sys.argv)

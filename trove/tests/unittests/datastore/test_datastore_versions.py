@@ -1,4 +1,5 @@
-#    Copyright (c) 2014 Rackspace Hosting
+# Copyright 2014 Rackspace
+# All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -23,11 +24,11 @@ class TestDatastoreVersions(TestDatastoreBase):
                                                   self.ds_version)
         self.assertEqual(datastore_version.name, self.ds_version)
 
-    def test_datastore_verison_capabilities(self):
+    def test_datastore_version_capabilities(self):
         self.datastore_version.capabilities.add(self.cap1, enabled=False)
         test_filtered_capabilities = self.capability_name_filter(
             self.datastore_version.capabilities)
-        self.assertEqual(len(test_filtered_capabilities), 3,
+        self.assertEqual(len(test_filtered_capabilities), 4,
                          'Capabilities the test thinks it has are: %s, '
                          'Filtered capabilities: %s' %
                          (self.datastore_version.capabilities,
@@ -38,7 +39,7 @@ class TestDatastoreVersions(TestDatastoreBase):
                                                        self.ds_version)
         test_filtered_capabilities = self.capability_name_filter(
             self.datastore_version.capabilities)
-        self.assertEqual(len(test_filtered_capabilities), 3,
+        self.assertEqual(len(test_filtered_capabilities), 4,
                          'Capabilities the test thinks it has are: %s, '
                          'Filtered capabilities: %s' %
                          (self.datastore_version.capabilities,

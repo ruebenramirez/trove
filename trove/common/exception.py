@@ -70,6 +70,11 @@ class CapabilityNotFound(NotFound):
     message = _("Capability '%(capability)s' cannot be found.")
 
 
+class CapabilityOverrideNotFound(NotFound):
+
+    message = _("Capability Override '%(capability)s' cannot be found.")
+
+
 class CapabilityDisabled(TroveError):
 
     message = _("Capability '%(capability)s' is disabled.")

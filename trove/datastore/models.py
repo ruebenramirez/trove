@@ -60,7 +60,9 @@ class DBDatastoreVersion(dbmodels.DatabaseModelBase):
 
 
 class Capabilities(object):
-
+    """
+    Capabilities of a datastore version
+    """
     def __init__(self, datastore_version_id=None):
         self.capabilities = []
         self.datastore_version_id = datastore_version_id
@@ -186,8 +188,88 @@ class BaseCapability(object):
         """
         Delete the capability from the database.
         """
-
         self.db_info.delete()
+
+
+class CapabilityOverrides(object):
+    def __init__(self, db_info):
+        self.db_info = db_info
+
+    @classmethod
+    def load_enabled_overrides(cls, capability_id):
+        return cls.load(capability_id, enabled=True, disabled=False)
+
+    @classmethod
+    def load_disabled_overrides(cls, capability_id):
+        return cls.load(capability_id, enabled=False, disabled=True)
+
+    @classmethod
+    def load_overrides(cls, capability_id):
+        return cls.load(capability_id)
+
+    @classmethod
+    def load(cls, capability_id, enabled=True, disabled=True):
+        """
+        Generates a list of CapabilityOverride Objects for the given base
+        capability
+
+        :param capability_id:   capability id
+        :param enabled:         boolean - loads enabled capability overrides
+        :returns CapabilityOverrides object
+        """
+        try:
+            overrides = []
+
+            if enabled is True and disabled is True:
+                db_infos = DBCapabilityOverrides.find_all(
+                    capability_id=capability_id)
+            elif enabled is True or disabled is True:
+                db_infos = DBCapabilityOverrides.find_all(
+                    capability_id=capability_id,
+                    enabled=enabled)
+            else:
+                return overrides
+
+            for db_info in db_infos:
+                overrides.append(CapabilityOverride.load(
+                    db_info.capability_id,
+                    db_info.datastore_version_id))
+            return overrides
+        except exception.ModelNotFoundError:
+            raise exception.CapabilityOverrideNotFound("Capability Overrides "
+                "not found for capability %s" % (capability_id))
+
+    @classmethod
+    def delete_enabled_overrides(cls, capability_id):
+        cls.delete(capability_id, enabled=True, disabled=False)
+
+    @classmethod
+    def delete_disabled_overrides(cls, capability_id):
+        cls.delete(capability_id, enabled=False, disabled=True)
+
+    @classmethod
+    def delete_all_overrides(cls, capability_id):
+        cls.delete(capability_id, enabled=True, disabled=True)
+
+    @classmethod
+    def delete(cls, capability_id, enabled=True, disabled=True):
+        """
+        delete all capability overrides
+
+        :param capability_id    reference the capability by id
+        :param enabled:         boolean - delete enabled overrides
+                                    (default true)
+        :param disabled:        boolean - delete disabled overrides
+                                    (default true)
+        """
+
+        # TODO: (rramirez) change to use the new method
+        overrides = CapabilityOverrides.load(capability_id, enabled, disabled)
+        for override in overrides:
+            override.delete()
+
+    def __iter__(self):
+        return iter(self.db_info)
 
 
 class CapabilityOverride(BaseCapability):
@@ -200,32 +282,30 @@ class CapabilityOverride(BaseCapability):
         super(CapabilityOverride, self).__init__(db_info)
         # This *may* be better solved with a join in the SQLAlchemy model but
         # I was unable to get our query object to work properly for this.
-        parent_capability = Capability.load(db_info.capability_id)
-        if parent_capability:
-            self.parent_name = parent_capability.name
-            self.parent_description = parent_capability.description
+        base_capability = Capability.load(db_info.capability_id)
+        if base_capability:
+            self.base_name = base_capability.name
+            self.base_description = base_capability.description
         else:
-            raise exception.CapabilityNotFound(
-                _("Somehow we got a datastore version capability without a "
-                  "parent, that shouldn't happen. %s") % db_info.capability_id)
+            raise exception.CapabilityOverrideNotFound("Somehow we got a "
+            "capability override without a base capability, that shouldn't "
+            "happen. %s" % db_info.capability_id)
 
     @property
     def name(self):
         """
         The name of the capability.
-
         :returns str:
         """
-        return self.parent_name
+        return self.base_name
 
     @property
     def description(self):
         """
         The description of the capability.
-
         :returns str:
         """
-        return self.parent_description
+        return self.base_description
 
     @property
     def capability_id(self):
@@ -237,27 +317,35 @@ class CapabilityOverride(BaseCapability):
         """
         return self.db_info.capability_id
 
-    @classmethod
-    def load(cls, capability_id):
+    @property
+    def datastore_version_id(self):
         """
-        Generates a CapabilityOverride object from the capability_override id.
+        :return: datastore_id
+        """
+        return self.db_info.datastore_version_id
+
+    @classmethod
+    def load(cls, capability_id, datastore_version_id):
+        """
+        Generates a CapabilityOverride object from the capability and datastore
+        id's.
 
         :returns CapabilityOverride:
         """
         try:
             return cls(DBCapabilityOverrides.find_by(
-                capability_id=capability_id))
+                capability_id=capability_id,
+                datastore_version_id=datastore_version_id))
         except exception.ModelNotFoundError:
-            raise exception.CapabilityNotFound(
-                _("Capability Override not found for "
-                  "capability %s") % capability_id)
+            raise exception.CapabilityOverrideNotFound("Capability Override "
+                "not found for capability %s" % capability_id)
 
     @classmethod
-    def create(cls, capability, datastore_version_id, enabled):
+    def create(cls, capability_id, datastore_version_id, enabled):
         """
         Create a new CapabilityOverride.
 
-        :param capability:              The capability to be overridden for
+        :param capability_id:              The capability to be overridden for
                                         this DS Version
         :param datastore_version_id:    The datastore version to apply the
                                         override to.
@@ -266,15 +354,20 @@ class CapabilityOverride(BaseCapability):
         :returns CapabilityOverride:
         """
 
-        return CapabilityOverride(
-            DBCapabilityOverrides.create(
-                capability_id=capability.id,
-                datastore_version_id=datastore_version_id,
-                enabled=enabled)
-        )
+        return cls(DBCapabilityOverrides.create(
+            capability_id=capability_id,
+            datastore_version_id=datastore_version_id,
+            enabled=enabled))
+
+    def __eq__(self, other):
+        return (self.id == other.id)
 
 
 class Capability(BaseCapability):
+    def __init__(self, db_info):
+        super(Capability, self).__init__(db_info)
+        self._overrides = None
+
     @property
     def name(self):
         """
@@ -319,6 +412,25 @@ class Capability(BaseCapability):
         """
         return Capability(DBCapabilities.create(
             name=name, description=description, enabled=enabled))
+
+    def delete(self):
+        """
+        Delete base capability and all overrides
+        :return:
+        """
+        CapabilityOverrides.delete_all_overrides(self.id)
+        super(Capability, self).delete()
+
+    @property
+    def overrides(self):
+        """
+        :return: overrides of this capability
+        """
+        if self._overrides is None:
+            self._overrides = CapabilityOverrides.load(
+                self.id)
+
+        return self._overrides
 
 
 class Datastore(object):
@@ -412,8 +524,8 @@ class DatastoreVersion(object):
             self._datastore_name = Datastore.load(self.datastore_id).name
         return self._datastore_name
 
-    #TODO(tim.simpson): This would be less confusing if it was called "version"
-    #                   and datastore_name was called "name".
+    # TODO(tim.simpson): This would be less confusing if it was called
+    #                    "version" and datastore_name was called "name".
     @property
     def name(self):
         return self.db_info.name
@@ -475,15 +587,15 @@ def get_datastore_version(type=None, version=None):
     datastore = Datastore.load(datastore)
     version = version or datastore.default_version_id
     if not version:
-        raise exception.DatastoreDefaultVersionNotFound(datastore=
-                                                        datastore.name)
+        raise exception.DatastoreDefaultVersionNotFound(
+            datastore=datastore.name)
     datastore_version = DatastoreVersion.load(datastore, version)
     if datastore_version.datastore_id != datastore.id:
         raise exception.DatastoreNoVersion(datastore=datastore.name,
                                            version=datastore_version.name)
     if not datastore_version.active:
-        raise exception.DatastoreVersionInactive(version=
-                                                 datastore_version.name)
+        raise exception.DatastoreVersionInactive(
+            version=datastore_version.name)
     return (datastore, datastore_version)
 
 
