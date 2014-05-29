@@ -16,14 +16,36 @@ from trove.tests.unittests.datastore.base import TestDatastoreBase
 from trove.datastore.models import CapabilityOverride
 from trove.datastore.models import Capability
 from trove.common.exception import CapabilityNotFound
+from trove.datastore.models import DBCapabilityOverrides
 
 
 class TestCapabilities(TestDatastoreBase):
     def setUp(self):
         super(TestCapabilities, self).setUp()
 
+        self.capability_name = "root_on_create" + self.rand_id
+        self.capability_desc = "Enables root on create"
+        self.capability_enabled = True
+
+        self.cap1 = Capability.create(self.capability_name,
+                                      self.capability_desc, True)
+        self.cap2 = Capability.create("require_volume" + self.rand_id,
+                                      "Require external volume", True)
+        self.cap3 = Capability.create("test_capability" + self.rand_id,
+                                      "Test capability", False)
+
     def tearDown(self):
         super(TestCapabilities, self).tearDown()
+
+        capabilities_overridden = DBCapabilityOverrides.find_all(
+            datastore_version_id=self.datastore_version.id).all()
+
+        for ce in capabilities_overridden:
+            ce.delete()
+
+        self.cap1.delete()
+        self.cap2.delete()
+        self.cap3.delete()
 
     def test_capability(self):
         cap = Capability.load(self.capability_name)
@@ -50,3 +72,10 @@ class TestCapabilities(TestDatastoreBase):
 
     def test_load_nonexistant_capability(self):
         self.assertRaises(CapabilityNotFound, Capability.load, "non-existant")
+
+    def capability_name_filter(self, capabilities):
+        new_capabilities = []
+        for capability in capabilities:
+            if self.rand_id in capability.name:
+                new_capabilities.append(capability)
+        return new_capabilities
