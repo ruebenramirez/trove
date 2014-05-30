@@ -238,15 +238,17 @@ class CapabilityOverride(BaseCapability):
         return self.db_info.capability_id
 
     @classmethod
-    def load(cls, capability_id):
+    def load(cls, capability_id, datastore_version_id):
         """
-        Generates a CapabilityOverride object from the capability_override id.
+        Generates a CapabilityOverride object from the capability and datastore id's.
 
         :returns CapabilityOverride:
         """
         try:
             return cls(DBCapabilityOverrides.find_by(
-                capability_id=capability_id))
+                capability_id=capability_id,
+                datastore_version_id=datastore_version_id
+                ))
         except exception.ModelNotFoundError:
             raise exception.CapabilityNotFound("Capability Override not "
             "found for capability %s" % capability_id)
