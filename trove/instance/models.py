@@ -317,10 +317,12 @@ class SimpleInstance(object):
 
     @property
     def volume_id(self):
+        # TODO: (rramirez) throw volume capabilities exception?
         return self.db_info.volume_id
 
     @property
     def volume_size(self):
+        # TODO: (rramirez) throw volume capabilities exception?
         return self.db_info.volume_size
 
     @property
@@ -352,23 +354,31 @@ class DetailInstance(SimpleInstance):
     def __init__(self, context, db_info, datastore_status):
         super(DetailInstance, self).__init__(context, db_info,
                                              datastore_status)
+        # TODO: (rramirez) where can we source datastore_version_id to lookup capability?
         self._volume_used = None
         self._volume_total = None
 
     @property
     def volume_used(self):
+        # TODO: (rramirez) update to use volume capability enabled/disabled
         return self._volume_used
 
     @volume_used.setter
     def volume_used(self, value):
+        # TODO: (rramirez) if capability is disabled for this datastore
+        # then throw CapabilityDisabled exception
         self._volume_used = value
 
     @property
     def volume_total(self):
+        # TODO: (rramirez) do we need to wrap this with capability logic?
+        # maybe better to have a capability property dictionary for the object?
         return self._volume_total
 
     @volume_total.setter
     def volume_total(self, value):
+        # TODO: (rramirez) wrap this setter with volume capability lookup for
+        # instance's datastore(/version)
         self._volume_total = value
 
 
@@ -443,6 +453,7 @@ def load_guest_info(instance, context, id):
     if instance.status not in AGENT_INVALID_STATUSES:
         guest = create_guest_client(context, id)
         try:
+            # TODO: (rramirez) wrap with volume capability lookup
             volume_info = guest.get_volume_info()
             instance.volume_used = volume_info['used']
             instance.volume_total = volume_info['total']
@@ -451,6 +462,7 @@ def load_guest_info(instance, context, id):
     return instance
 
 
+# TODO: (rramirez) no need to touch BaseInstance class with volume capabilities logic
 class BaseInstance(SimpleInstance):
     """Represents an instance.
     -----------
@@ -599,6 +611,7 @@ class Instance(BuiltInstance):
                       % datastore_manager)
             return False
 
+    # TODO: (rramirez) not all datastores will require a volume
     @classmethod
     def create(cls, context, name, flavor_id, image_id, databases, users,
                datastore, datastore_version, volume_size, backup_id,
@@ -610,6 +623,15 @@ class Instance(BuiltInstance):
         except nova_exceptions.NotFound:
             raise exception.FlavorNotFound(uuid=flavor_id)
 
+
+        """
+        TODO: (rramirez)
+        If the client asks for volume size on a datastore that has volume
+        capability disabled, should we throw an exception?
+        """
+
+        # TODO: (rramirez) are deltas used to calculate the amount of disk space
+        # needed for OS + datastorage purchased by the client?
         deltas = {'instances': 1}
         if CONF.trove_volume_support:
             validate_volume_size(volume_size)
@@ -682,6 +704,8 @@ class Instance(BuiltInstance):
                     datastore_version.manager) and not backup_id:
                 root_password = utils.generate_random_password()
 
+            # TODO: (rramirez) this is for the entire host instance, not to do
+            # with the datastore volume capability logic
             task_api.API(context).create_instance(db_info.id, name, flavor,
                                                   image_id, databases, users,
                                                   datastore_version.manager,
@@ -724,6 +748,9 @@ class Instance(BuiltInstance):
         old_flavor = client.flavors.get(self.flavor_id)
         new_flavor_size = new_flavor.ram
         old_flavor_size = old_flavor.ram
+
+        # TODO: (rramirez) How does trove_volume_support work in
+        # comparison to volume capability logic?
         if CONF.trove_volume_support:
             if new_flavor.ephemeral != 0:
                 raise exception.LocalStorageNotSupported()
@@ -743,6 +770,15 @@ class Instance(BuiltInstance):
         task_api.API(self.context).resize_flavor(self.id, old_flavor,
                                                  new_flavor)
 
+    # TODO: (rramirez) this is for the host, so prob doesn't need volume
+    # capability logic wrapper here
+    """
+    TODO: (rramirez)
+    Are there other reasons that a resize would need to be issued, other than customers
+    data consumption growing past the current volume size capacity?
+
+    If this is the case, should we consider volume capability logic at this depth?
+    """
     def resize_volume(self, new_size):
         def _resize_resources():
             self.validate_can_perform_action()
@@ -982,6 +1018,8 @@ class DBInstance(dbmodels.DatabaseModelBase):
 
     #TODO(tim.simpson): Add start time.
 
+    # TODO: (rramirez) volume_id looks to come in as part of a db_info type object
+    # no volume capability logic to work in here
     _data_fields = ['name', 'created', 'compute_instance_id',
                     'task_id', 'task_description', 'task_start_time',
                     'volume_id', 'deleted', 'tenant_id',
