@@ -613,7 +613,7 @@ class Instance(BuiltInstance):
             raise exception.FlavorNotFound(uuid=flavor_id)
 
         deltas = {'instances': 1}
-        if CONF.trove_volume_support:
+        if CONF.get(datastore_version.manager).volume_support:
             validate_volume_size(volume_size)
             deltas['volumes'] = volume_size
         else:
