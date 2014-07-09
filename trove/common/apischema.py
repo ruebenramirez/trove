@@ -188,7 +188,7 @@ instance = {
         "properties": {
             "instance": {
                 "type": "object",
-                "required": ["name", "flavorRef"]
+                "required": ["name", "flavorRef"],
                 "additionalProperties": True,
                 "properties": {
                     "name": non_empty_string,

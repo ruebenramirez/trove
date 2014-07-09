@@ -272,7 +272,8 @@ common_opts = [
 # Datastore specific option groups
 
 # Mysql
-mysql_group = cfg.OptGroup( 'mysql', title='MySQL options', help="Oslo option group designed for MySQL datastore") mysql_opts = [ cfg.ListOpt('tcp_ports', default=["3306"],
+mysql_group = cfg.OptGroup( 'mysql', title='MySQL options', help="Oslo option group designed for MySQL datastore")
+mysql_opts = [ cfg.ListOpt('tcp_ports', default=["3306"],
                 help='List of TCP ports and/or port ranges to open'
                      ' in the security group (only applicable '
                      'if trove_security_groups_support is True).'),
